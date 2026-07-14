@@ -11,6 +11,7 @@
     "build": "tsc --noEmit && vite build",
     "start": "npm run build:native && npm run build && electron .",
     "package:mac": "npm run build:native && npm run build && electron-builder --mac dir",
+    "release:mac": "npm run build:native && npm run build && electron-builder --mac dmg zip",
     "screenshots:readme": "npm run build && node scripts/capture-readme.mjs"
   },
   "devDependencies": {
@@ -22,6 +23,7 @@
   "build": {
     "appId": "com.glancedeck.desktop",
     "productName": "瞬览 GlanceDeck",
+    "artifactName": "GlanceDeck-${version}-${arch}.${ext}",
     "asar": true,
     "directories": {
       "output": "release"

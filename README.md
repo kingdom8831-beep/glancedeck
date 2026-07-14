@@ -13,6 +13,12 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/kingdom8831-beep/glancedeck/releases/latest"><b>下载最新版本</b></a>
+  ·
+  <a href="https://github.com/kingdom8831-beep/glancedeck/releases">查看全部 Releases</a>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/widget-glass.png" width="520" alt="瞬览紧凑悬浮窗">
 </p>
 
@@ -54,6 +60,15 @@
     <td align="center"><b>提醒可靠性控制</b></td>
   </tr>
 </table>
+
+## 下载与安装
+
+前往 [GitHub Releases](https://github.com/kingdom8831-beep/glancedeck/releases/latest) 下载：
+
+- `GlanceDeck-*-arm64.dmg`：Apple Silicon Mac 推荐安装包
+- `GlanceDeck-*-arm64.zip`：免镜像备用包
+
+打开 DMG 后将“瞬览 GlanceDeck”拖入“应用程序”。当前公开版本尚未使用 Apple Developer ID 签名；如果 macOS 首次启动时拦截，请在 Finder 中右键应用并选择“打开”。
 
 ## 功能
 
@@ -102,6 +117,12 @@ npm start
 
 ```bash
 npm run package:mac
+```
+
+生成用于 GitHub Release 的 DMG 与 ZIP：
+
+```bash
+npm run release:mac
 ```
 
 重新生成 README 产品截图：
