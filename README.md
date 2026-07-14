@@ -1,6 +1,59 @@
-# 瞬览 GlanceDeck
+<p align="center">
+  <img src="build/icon-f-v2.png" width="96" alt="瞬览 GlanceDeck 图标">
+</p>
 
-一个 `296 × 156px` 的微型桌面悬浮窗，把 Codex 用量、当前一只 A 股/指数与天气收进一块轻量小组件里。
+<h1 align="center">瞬览 GlanceDeck</h1>
+
+<p align="center">
+  把 Codex 用量、A 股行情、持仓提醒、天气与 AI 研判收进桌面角落。
+</p>
+
+<p align="center">
+  <code>296 × 156px 紧凑悬浮窗</code> · <code>macOS 菜单栏常驻</code> · <code>多源实时行情</code> · <code>本地优先</code>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/widget-glass.png" width="520" alt="瞬览紧凑悬浮窗">
+</p>
+
+## 一眼看懂
+
+| 行情研判 | AI 执行链 | 桌面效率 |
+| --- | --- | --- |
+| 多源报价、K 线指标、资金流入流出与主力净流入 | 模型 → 系统角色 → 任务模板 → 工具和输出契约 | 菜单栏常驻、置顶悬浮、快捷唤回与三套主题 |
+| 持仓成本、盈亏贡献、上涨/下跌阈值提醒 | 内置大盘、个股、资金和持仓研判模板，历史保存在本机 | 定位天气、七日预报、Codex 剩余额度一屏掌握 |
+
+## 产品预览
+
+### K 线与技术指标
+
+<p align="center">
+  <img src="docs/screenshots/kline-workspace.png" width="100%" alt="瞬览 K 线与技术指标工作区">
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/capital-flow.png" alt="瞬览资金趋势"></td>
+    <td width="50%"><img src="docs/screenshots/ai-decision-chain.png" alt="瞬览 AI 研判执行链"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>资金趋势</b><br>主力、当日、累计净流入与股价同图对照</td>
+    <td align="center"><b>AI 研判执行链</b><br>角色、任务、工具契约与本机研判历史</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/holdings-alerts.png" alt="瞬览持仓与提醒"></td>
+    <td width="33%"><img src="docs/screenshots/weather-forecast.png" alt="瞬览七日天气"></td>
+    <td width="33%"><img src="docs/screenshots/settings-reliability.png" alt="瞬览提醒可靠性设置"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>持仓与阈值提醒</b></td>
+    <td align="center"><b>定位与七日天气</b></td>
+    <td align="center"><b>提醒可靠性控制</b></td>
+  </tr>
+</table>
 
 ## 功能
 
@@ -50,6 +103,14 @@ npm start
 ```bash
 npm run package:mac
 ```
+
+重新生成 README 产品截图：
+
+```bash
+npm run screenshots:readme
+```
+
+截图任务使用独立演示配置，不会读取或写入日常使用的 API Key、持仓、定位和窗口设置。
 
 产物位于 `release/mac-arm64/瞬览 GlanceDeck.app`（Apple Silicon）或对应架构目录。
 

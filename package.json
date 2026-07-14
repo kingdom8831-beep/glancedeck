@@ -10,7 +10,8 @@
     "dev": "npm run build:native && node scripts/dev.mjs",
     "build": "tsc --noEmit && vite build",
     "start": "npm run build:native && npm run build && electron .",
-    "package:mac": "npm run build:native && npm run build && electron-builder --mac dir"
+    "package:mac": "npm run build:native && npm run build && electron-builder --mac dir",
+    "screenshots:readme": "npm run build && node scripts/capture-readme.mjs"
   },
   "devDependencies": {
     "electron": "43.1.0",

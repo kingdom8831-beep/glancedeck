@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
+if (process.env.FLOATDECK_CAPTURE_USER_DATA) {
+  app.setPath('userData', path.resolve(process.env.FLOATDECK_CAPTURE_USER_DATA));
+}
 const LEGACY_AI_PROMPT = '你是一名严谨的 A 股研究助手。仅依据提供的实时行情、K 线、资金流和持仓数据研判，不虚构新闻或基本面信息。请用中文依次输出：趋势判断、资金行为、关键价位、持仓视角、风险点、简短结论。明确区分事实与推断，结论保持克制。';
 const DEFAULT_AI_PROMPT = '结论保持简洁，优先指出最关键的机会、风险与需要继续观察的数据。';
 const MARKET_INDEX_SECIDS = ['1.000001', '0.399001', '0.399006'];
@@ -419,6 +422,7 @@ function applyLaunchAtLogin() {
 
 function createWindow() {
   const bounds = safeInitialBounds();
+  const solidCapture = Boolean(process.env.FLOATDECK_CAPTURE_SOLID);
   windowRef = new BrowserWindow({
     ...bounds,
     minWidth: 276,
@@ -426,10 +430,10 @@ function createWindow() {
     minHeight: 140,
     maxHeight: 640,
     frame: false,
-    transparent: true,
+    transparent: !solidCapture,
     resizable: false,
     show: false,
-    backgroundColor: '#00000000',
+    backgroundColor: solidCapture ? '#eef3f5' : '#00000000',
     hasShadow: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -1640,6 +1644,14 @@ async function analyzeWithAgent(request) {
 
 ipcMain.handle('app:bootstrap', async () => ({ settings: publicSettings(), aiCatalog: publicAiCatalog(), aiHistory: aiAnalysisHistory, alertStatus: publicHoldingAlertStatus() }));
 ipcMain.handle('codex:usage', async () => {
+  if (process.env.FLOATDECK_CAPTURE_PATH) {
+    return {
+      connected: true,
+      planType: 'demo',
+      primary: { usedPercent: 77, windowDurationMins: 10_080, resetsAt: Math.floor(Date.now() / 1000) + 6 * 86_400 + 17 * 3_600 },
+      updatedAt: Date.now(),
+    };
+  }
   try {
     const result = await codexServer.getUsage();
     updateTrayPresentation(result);
@@ -1729,6 +1741,9 @@ app.whenReady().then(() => {
       { secid: '0.300750', shares: 200, costPrice: 338.6, alertUp: 3, alertDown: 2.5, alertEnabled: true },
       { secid: '1.600519', shares: 100, costPrice: 1268.2, alertUp: 2, alertDown: 3, alertEnabled: false },
     ]);
+  }
+  if (/^[012]\.\d{6}$/.test(process.env.FLOATDECK_CAPTURE_SELECTED_SECID || '')) {
+    settings.selectedSecid = process.env.FLOATDECK_CAPTURE_SELECTED_SECID;
   }
   if (process.env.FLOATDECK_CAPTURE_WEATHER_MANUAL) settings.weatherAuto = false;
   createWindow();
