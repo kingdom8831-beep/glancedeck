@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/icon-f-v2.png" width="96" alt="瞬览 GlanceDeck 图标">
+  <img src="build/icon.iconset/icon_512x512.png" width="96" alt="瞬览 GlanceDeck 图标">
 </p>
 
 <h1 align="center">瞬览 GlanceDeck</h1>

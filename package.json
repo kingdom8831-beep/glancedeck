@@ -8,12 +8,13 @@
   "main": "electron/main.mjs",
   "scripts": {
     "build:native": "node scripts/build-native.mjs",
+    "build:mac-icon": "swift scripts/build-macos-icon.swift",
     "build:win-icon": "node scripts/build-windows-icon.mjs",
     "dev": "npm run build:native && node scripts/dev.mjs",
     "build": "tsc --noEmit && vite build",
     "start": "npm run build:native && npm run build && electron .",
-    "package:mac": "npm run build:native && npm run build && electron-builder --mac dir",
-    "release:mac": "npm run build:native && npm run build && electron-builder --mac dmg zip",
+    "package:mac": "npm run build:mac-icon && npm run build:native && npm run build && electron-builder --mac dir",
+    "release:mac": "npm run build:mac-icon && npm run build:native && npm run build && electron-builder --mac dmg zip",
     "package:win": "npm run build:win-icon && npm run build && electron-builder --win dir --x64",
     "release:win": "npm run build:win-icon && npm run build && electron-builder --win nsis portable --x64",
     "screenshots:readme": "npm run build && node scripts/capture-readme.mjs"
