@@ -1,0 +1,27 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="74" x2="902" y2="940" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D5E8FF"/>
+      <stop offset=".52" stop-color="#F8FBFF"/>
+      <stop offset="1" stop-color="#CFF9EC"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="250" y1="230" x2="780" y2="790" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity=".92"/>
+      <stop offset="1" stop-color="#E9F4FF" stop-opacity=".68"/>
+    </linearGradient>
+    <filter id="shadow" x="130" y="145" width="764" height="764" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="36" stdDeviation="38" flood-color="#50728F" flood-opacity=".26"/>
+    </filter>
+  </defs>
+  <rect x="44" y="44" width="936" height="936" rx="224" fill="url(#bg)"/>
+  <circle cx="172" cy="184" r="32" fill="#F08E9A"/>
+  <circle cx="252" cy="184" r="32" fill="#F3BD5C"/>
+  <circle cx="332" cy="184" r="32" fill="#62CDB7"/>
+  <g filter="url(#shadow)">
+    <rect x="176" y="244" width="672" height="566" rx="156" fill="url(#glass)" stroke="#FFFFFF" stroke-width="12"/>
+    <path d="m314 405 148 107-148 107" fill="none" stroke="#456BD8" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M492 626h178" fill="none" stroke="#456BD8" stroke-width="58" stroke-linecap="round"/>
+    <rect x="314" y="710" width="356" height="18" rx="9" fill="#D5E0E9"/>
+    <rect x="314" y="710" width="274" height="18" rx="9" fill="url(#bg)"/>
+  </g>
+</svg>

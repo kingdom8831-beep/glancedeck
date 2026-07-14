@@ -1,0 +1,46 @@
+{
+  "name": "floatdeck",
+  "version": "0.1.0",
+  "private": true,
+  "description": "瞬览：Codex 用量、A 股行情与天气桌面悬浮窗",
+  "type": "module",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "tsc --noEmit && vite build",
+    "start": "npm run build && electron .",
+    "package:mac": "npm run build && electron-builder --mac dir"
+  },
+  "devDependencies": {
+    "electron": "43.1.0",
+    "electron-builder": "26.0.12",
+    "typescript": "5.9.3",
+    "vite": "8.1.4"
+  },
+  "build": {
+    "appId": "com.floatdeck.desktop",
+    "productName": "瞬览 GlanceDeck",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "build/trayTemplate.png",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "identity": null,
+      "extendInfo": {
+        "NSLocationUsageDescription": "瞬览使用当前位置提供本地天气与未来七日预报。",
+        "NSLocationWhenInUseUsageDescription": "瞬览使用当前位置提供本地天气与未来七日预报。"
+      },
+      "target": [
+        "dir"
+      ]
+    }
+  }
+}
