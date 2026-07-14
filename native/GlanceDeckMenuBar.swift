@@ -8,32 +8,10 @@ private struct MenuBarState: Decodable {
     let resetLabel: String?
 }
 
-private final class StatusBadgeView: NSView {
-    var text = ">_ ···" { didSet { needsDisplay = true } }
-
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-        let badgeRect = bounds.insetBy(dx: 1, dy: 5)
-        let background = NSBezierPath(roundedRect: badgeRect, xRadius: 7, yRadius: 7)
-        NSColor(calibratedRed: 91 / 255, green: 124 / 255, blue: 250 / 255, alpha: 0.98).setFill()
-        background.fill()
-        let attributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: NSColor.white,
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold),
-        ]
-        let attributed = NSAttributedString(string: text, attributes: attributes)
-        let size = attributed.size()
-        attributed.draw(at: NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2))
-    }
-}
-
 private final class MenuBarDelegate: NSObject, NSApplicationDelegate {
     private let parentPID: pid_t
     private let statePath: String
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    private let badgeView = StatusBadgeView(frame: .zero)
     private var state = MenuBarState(connected: false, remaining: nil, resetLabel: nil)
     private var timer: Timer?
 
@@ -44,15 +22,15 @@ private final class MenuBarDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItem.length = 66
         if let button = statusItem.button {
-            button.title = ""
+            let icon = NSImage(systemSymbolName: "terminal.fill", accessibilityDescription: "瞬览")
+            icon?.isTemplate = true
+            button.image = icon
+            button.imagePosition = .imageLeading
+            button.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold)
             button.toolTip = "瞬览 GlanceDeck"
-            badgeView.frame = button.bounds
-            badgeView.autoresizingMask = [.width, .height]
-            button.addSubview(badgeView)
         }
-        setButtonTitle(">_ ···")
+        setButtonTitle("···")
         reloadState()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             self?.tick()
@@ -73,13 +51,13 @@ private final class MenuBarDelegate: NSObject, NSApplicationDelegate {
             state = decoded
         }
         let remaining = state.remaining.map { max(0, min(100, $0)) }
-        setButtonTitle(remaining.map { ">_ \($0)%" } ?? ">_ ···")
+        setButtonTitle(remaining.map { "\($0)%" } ?? "···")
         statusItem.button?.toolTip = remaining.map { "瞬览 GlanceDeck · Codex 剩余 \($0)%" } ?? "瞬览 GlanceDeck · Codex 用量同步中"
         rebuildMenu()
     }
 
     private func setButtonTitle(_ title: String) {
-        badgeView.text = title
+        statusItem.button?.title = title
     }
 
     private func rebuildMenu() {
