@@ -414,7 +414,9 @@ function applyWindowPreferences() {
 function applyLaunchAtLogin() {
   if (!app.isPackaged || process.env.FLOATDECK_CAPTURE_PATH) return;
   try {
-    app.setLoginItemSettings({ openAtLogin: Boolean(settings.launchAtLogin), openAsHidden: true });
+    const loginSettings = { openAtLogin: Boolean(settings.launchAtLogin) };
+    if (process.platform === 'darwin') loginSettings.openAsHidden = true;
+    app.setLoginItemSettings(loginSettings);
   } catch (error) {
     debugLog('Launch at login update failed', error.message);
   }
@@ -432,6 +434,7 @@ function createWindow() {
     frame: false,
     transparent: !solidCapture,
     resizable: false,
+    skipTaskbar: true,
     show: false,
     backgroundColor: solidCapture ? '#eef3f5' : '#00000000',
     hasShadow: true,
@@ -624,7 +627,13 @@ function createTrayMenuOnly() {
 }
 
 function findCodexBinary() {
-  const candidates = [
+  const isWindows = process.platform === 'win32';
+  const candidates = isWindows ? [
+    process.env.CODEX_CLI_PATH,
+    process.env.APPDATA ? path.join(process.env.APPDATA, 'npm', 'codex.cmd') : null,
+    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Programs', 'Codex', 'resources', 'codex.exe') : null,
+    path.join(app.getPath('home'), '.local', 'bin', 'codex.exe'),
+  ].filter(Boolean) : [
     process.env.CODEX_CLI_PATH,
     '/Applications/ChatGPT.app/Contents/Resources/codex',
     '/Applications/Codex.app/Contents/Resources/codex',
@@ -635,15 +644,15 @@ function findCodexBinary() {
 
   for (const candidate of candidates) {
     try {
-      accessSync(candidate, constants.X_OK);
+      accessSync(candidate, isWindows ? constants.F_OK : constants.X_OK);
       return candidate;
     } catch {
       // Try the next common location.
     }
   }
 
-  const which = spawnSync('which', ['codex'], { encoding: 'utf8' });
-  return which.status === 0 ? which.stdout.trim() : null;
+  const locator = spawnSync(isWindows ? 'where.exe' : 'which', ['codex'], { encoding: 'utf8', windowsHide: true });
+  return locator.status === 0 ? locator.stdout.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || null : null;
 }
 
 class CodexAppServer {
@@ -670,9 +679,13 @@ class CodexAppServer {
     const binary = findCodexBinary();
     if (!binary) throw new Error('未找到 Codex CLI');
 
-    this.proc = spawn(binary, ['app-server'], {
+    const isWindowsScript = process.platform === 'win32' && /\.(cmd|bat)$/i.test(binary);
+    const command = isWindowsScript ? process.env.ComSpec || 'cmd.exe' : binary;
+    const args = isWindowsScript ? ['/d', '/s', '/c', `"${binary}" app-server`] : ['app-server'];
+    this.proc = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env, RUST_LOG: 'error' },
+      windowsHide: true,
     });
 
     const lines = readline.createInterface({ input: this.proc.stdout });
@@ -707,7 +720,7 @@ class CodexAppServer {
     });
 
     await this.request('initialize', {
-      clientInfo: { name: 'floatdeck', title: '瞬览 GlanceDeck', version: '0.1.0' },
+      clientInfo: { name: 'floatdeck', title: '瞬览 GlanceDeck', version: app.getVersion() },
       capabilities: null,
     }, true);
     this.send({ method: 'initialized', params: {} });
@@ -1714,9 +1727,11 @@ ipcMain.on('window:minimize', () => windowRef?.minimize());
 ipcMain.on('window:hide', () => windowRef?.hide());
 ipcMain.on('app:quit', () => { isQuitting = true; app.quit(); });
 
-process.on('SIGUSR1', () => windowRef?.isVisible() ? windowRef.hide() : showWindow());
-process.on('SIGUSR2', () => windowRef?.webContents.send('app:refresh'));
-process.on('SIGHUP', () => { isQuitting = true; app.quit(); });
+if (process.platform === 'darwin') {
+  process.on('SIGUSR1', () => windowRef?.isVisible() ? windowRef.hide() : showWindow());
+  process.on('SIGUSR2', () => windowRef?.webContents.send('app:refresh'));
+  process.on('SIGHUP', () => { isQuitting = true; app.quit(); });
+}
 
 app.whenReady().then(() => {
   loadSettings();

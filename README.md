@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <code>296 × 156px 紧凑悬浮窗</code> · <code>macOS 菜单栏常驻</code> · <code>多源实时行情</code> · <code>本地优先</code>
+  <code>296 × 156px 紧凑悬浮窗</code> · <code>macOS / Windows</code> · <code>多源实时行情</code> · <code>本地优先</code>
 </p>
 
 <p align="center">
@@ -65,10 +65,12 @@
 
 前往 [GitHub Releases](https://github.com/kingdom8831-beep/glancedeck/releases/latest) 下载：
 
+- `GlanceDeck-Setup-*-x64.exe`：Windows 10/11 x64 安装版
+- `GlanceDeck-Portable-*-x64.exe`：Windows 10/11 x64 免安装版
 - `GlanceDeck-*-arm64.dmg`：Apple Silicon Mac 推荐安装包
 - `GlanceDeck-*-arm64.zip`：免镜像备用包
 
-打开 DMG 后将“瞬览 GlanceDeck”拖入“应用程序”。当前公开版本尚未使用 Apple Developer ID 签名；如果 macOS 首次启动时拦截，请在 Finder 中右键应用并选择“打开”。
+Windows 可直接运行安装版或免安装版；打开 DMG 后将“瞬览 GlanceDeck”拖入“应用程序”。当前公开版本尚未进行商业代码签名；Windows SmartScreen 或 macOS Gatekeeper 首次提示时，需要选择继续运行或在 Finder 中右键应用并选择“打开”。
 
 ## 功能
 
@@ -95,7 +97,7 @@
 - 设置页按“显示、行情、模型、提醒可靠性”四个区域组织，避免模型配置与日常选项混在一起
 - 提醒引擎支持开机启动、仅交易时段检查、30/60/120 秒轮询和 2/3/5/10 分钟行情新鲜度阈值，并显示最近检查与异常状态
 - 始终置顶、所有桌面可见、透明度调节
-- macOS 菜单栏常驻入口，图标旁直接显示 Codex 剩余百分比；点击可显示/隐藏悬浮窗、立即刷新或退出
+- macOS 菜单栏与 Windows 系统托盘常驻入口；点击可显示/隐藏悬浮窗、立即刷新或退出
 - `⌘ ⇧ U` 显示/隐藏快捷键
 
 菜单栏入口由原生 AppKit 助手绘制，并与 Electron 主进程在本机通信；关闭悬浮窗不会退出应用，可从菜单栏随时唤回。
@@ -123,6 +125,12 @@ npm run package:mac
 
 ```bash
 npm run release:mac
+```
+
+生成 Windows x64 安装版与免安装版：
+
+```bash
+npm run release:win
 ```
 
 重新生成 README 产品截图：

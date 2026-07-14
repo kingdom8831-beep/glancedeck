@@ -1,17 +1,21 @@
 {
   "name": "floatdeck",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "瞬览：Codex 用量、A 股行情与天气桌面悬浮窗",
+  "author": "kingdom8831-beep",
   "type": "module",
   "main": "electron/main.mjs",
   "scripts": {
-    "build:native": "swiftc -O -framework AppKit native/GlanceDeckMenuBar.swift -o build/GlanceDeckMenuBar",
+    "build:native": "node scripts/build-native.mjs",
+    "build:win-icon": "node scripts/build-windows-icon.mjs",
     "dev": "npm run build:native && node scripts/dev.mjs",
     "build": "tsc --noEmit && vite build",
     "start": "npm run build:native && npm run build && electron .",
     "package:mac": "npm run build:native && npm run build && electron-builder --mac dir",
     "release:mac": "npm run build:native && npm run build && electron-builder --mac dmg zip",
+    "package:win": "npm run build:win-icon && npm run build && electron-builder --win dir --x64",
+    "release:win": "npm run build:win-icon && npm run build && electron-builder --win nsis portable --x64",
     "screenshots:readme": "npm run build && node scripts/capture-readme.mjs"
   },
   "devDependencies": {
@@ -39,30 +43,24 @@
     ],
     "extraResources": [
       {
-        "from": "build/trayTemplate.png",
-        "to": "trayTemplate.png"
-      },
-      {
-        "from": "build/trayTemplate@2x.png",
-        "to": "trayTemplate@2x.png"
-      },
-      {
         "from": "build/trayStatus.png",
         "to": "trayStatus.png"
       },
       {
         "from": "build/trayStatus@2x.png",
         "to": "trayStatus@2x.png"
-      },
-      {
-        "from": "build/GlanceDeckMenuBar",
-        "to": "GlanceDeckMenuBar"
       }
     ],
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "build/icon.icns",
       "identity": null,
+      "extraResources": [
+        {
+          "from": "build/GlanceDeckMenuBar",
+          "to": "GlanceDeckMenuBar"
+        }
+      ],
       "extendInfo": {
         "NSLocationUsageDescription": "瞬览使用当前位置提供本地天气与未来七日预报。",
         "NSLocationWhenInUseUsageDescription": "瞬览使用当前位置提供本地天气与未来七日预报。"
@@ -70,6 +68,31 @@
       "target": [
         "dir"
       ]
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "GlanceDeck-Setup-${version}-${arch}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "瞬览 GlanceDeck"
+    },
+    "portable": {
+      "artifactName": "GlanceDeck-Portable-${version}-${arch}.${ext}"
     }
   }
 }
