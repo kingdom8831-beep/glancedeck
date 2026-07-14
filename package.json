@@ -1,15 +1,16 @@
 {
   "name": "floatdeck",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "瞬览：Codex 用量、A 股行情与天气桌面悬浮窗",
   "type": "module",
   "main": "electron/main.mjs",
   "scripts": {
-    "dev": "node scripts/dev.mjs",
+    "build:native": "swiftc -O -framework AppKit native/GlanceDeckMenuBar.swift -o build/GlanceDeckMenuBar",
+    "dev": "npm run build:native && node scripts/dev.mjs",
     "build": "tsc --noEmit && vite build",
-    "start": "npm run build && electron .",
-    "package:mac": "npm run build && electron-builder --mac dir"
+    "start": "npm run build:native && npm run build && electron .",
+    "package:mac": "npm run build:native && npm run build && electron-builder --mac dir"
   },
   "devDependencies": {
     "electron": "43.1.0",
@@ -18,7 +19,7 @@
     "vite": "8.1.4"
   },
   "build": {
-    "appId": "com.floatdeck.desktop",
+    "appId": "com.glancedeck.desktop",
     "productName": "瞬览 GlanceDeck",
     "asar": true,
     "directories": {
@@ -28,7 +29,32 @@
       "dist/**/*",
       "electron/**/*",
       "build/trayTemplate.png",
+      "build/trayTemplate@2x.png",
+      "build/trayStatus.png",
+      "build/trayStatus@2x.png",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/trayTemplate.png",
+        "to": "trayTemplate.png"
+      },
+      {
+        "from": "build/trayTemplate@2x.png",
+        "to": "trayTemplate@2x.png"
+      },
+      {
+        "from": "build/trayStatus.png",
+        "to": "trayStatus.png"
+      },
+      {
+        "from": "build/trayStatus@2x.png",
+        "to": "trayStatus@2x.png"
+      },
+      {
+        "from": "build/GlanceDeckMenuBar",
+        "to": "GlanceDeckMenuBar"
+      }
     ],
     "mac": {
       "category": "public.app-category.productivity",

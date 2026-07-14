@@ -130,6 +130,10 @@ const DEFAULT_SETTINGS = {
 let settings = { ...DEFAULT_SETTINGS };
 let windowRef = null;
 let trayRef = null;
+let trayMenuRef = null;
+let menuBarHelperRef = null;
+let menuBarHelperRestartTimer = null;
+let lastCodexUsage = null;
 let isQuitting = false;
 let saveTimer = null;
 let holdingAlertTimer = null;
@@ -172,6 +176,10 @@ function holdingAlertStatePath() {
 
 function aiAnalysisHistoryPath() {
   return path.join(app.getPath('userData'), 'ai-analysis-history.json');
+}
+
+function menuBarStatePath() {
+  return path.join(app.getPath('userData'), 'menubar-state.json');
 }
 
 function sanitizeHoldings(holdings) {
@@ -472,6 +480,8 @@ function createWindow() {
   });
   windowRef.on('move', scheduleBoundsSave);
   windowRef.on('resize', scheduleBoundsSave);
+  windowRef.on('show', () => updateTrayPresentation());
+  windowRef.on('hide', () => updateTrayPresentation());
   windowRef.on('close', (event) => {
     if (isQuitting) return;
     event.preventDefault();
@@ -480,15 +490,84 @@ function createWindow() {
 }
 
 function createTray() {
-  const trayPath = path.join(ROOT, 'build', 'trayTemplate.png');
-  let icon = existsSync(trayPath) ? nativeImage.createFromPath(trayPath) : nativeImage.createEmpty();
-  icon = icon.resize({ width: 18, height: 18 });
-  icon.setTemplateImage(true);
-  trayRef = new Tray(icon);
-  trayRef.setToolTip('瞬览 GlanceDeck');
-  trayRef.setContextMenu(Menu.buildFromTemplate([
-    { label: '显示瞬览', click: () => showWindow() },
-    { label: '刷新数据', click: () => windowRef?.webContents.send('app:refresh') },
+  const trayPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'trayStatus.png')
+    : path.join(ROOT, 'build', 'trayStatus.png');
+  const image = existsSync(trayPath) ? nativeImage.createFromPath(trayPath) : nativeImage.createEmpty();
+  image.setTemplateImage(false);
+  trayRef = new Tray(image);
+  debugLog('Tray icon loaded', trayPath, trayRef.getBounds());
+  updateTrayPresentation();
+  trayRef.on('click', () => trayMenuRef && trayRef?.popUpContextMenu(trayMenuRef));
+  trayRef.on('right-click', () => trayMenuRef && trayRef?.popUpContextMenu(trayMenuRef));
+}
+
+function persistMenuBarState(usage = lastCodexUsage) {
+  const remaining = codexTrayRemaining(usage);
+  const resetLabel = trayResetLabel(usage);
+  try {
+    writeFileSync(menuBarStatePath(), JSON.stringify({ connected: remaining !== null, remaining, resetLabel }));
+  } catch (error) {
+    debugLog('Menu bar state write failed', error.message);
+  }
+}
+
+function createMenuBarHelper() {
+  if (process.platform !== 'darwin' || process.env.FLOATDECK_CAPTURE_PATH || menuBarHelperRef) return;
+  const helperPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'GlanceDeckMenuBar')
+    : path.join(ROOT, 'build', 'GlanceDeckMenuBar');
+  if (!existsSync(helperPath)) {
+    debugLog('Native menu bar helper missing, falling back to Electron Tray', helperPath);
+    createTray();
+    return;
+  }
+  persistMenuBarState();
+  menuBarHelperRef = spawn(helperPath, [String(process.pid), menuBarStatePath()], { stdio: 'ignore' });
+  menuBarHelperRef.on('error', (error) => {
+    debugLog('Menu bar helper failed, falling back to Electron Tray', error.message);
+    if (!trayRef) createTray();
+  });
+  menuBarHelperRef.on('exit', () => {
+    menuBarHelperRef = null;
+    if (!isQuitting) {
+      clearTimeout(menuBarHelperRestartTimer);
+      menuBarHelperRestartTimer = setTimeout(createMenuBarHelper, 1500);
+    }
+  });
+  setTimeout(() => app.dock?.hide(), 1100);
+}
+
+function codexTrayRemaining(usage = lastCodexUsage) {
+  const used = Number(usage?.primary?.usedPercent);
+  if (!usage?.connected || !Number.isFinite(used)) return null;
+  return Math.max(0, Math.min(100, Math.round(100 - used)));
+}
+
+function trayResetLabel(usage = lastCodexUsage) {
+  const resetsAt = Number(usage?.primary?.resetsAt);
+  if (!Number.isFinite(resetsAt) || resetsAt <= 0) return null;
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date(resetsAt * 1000));
+}
+
+function updateTrayPresentation(usage = lastCodexUsage) {
+  if (usage) lastCodexUsage = usage;
+  if (process.platform === 'darwin') persistMenuBarState();
+  if (!trayRef) return;
+  const remaining = codexTrayRemaining();
+  const resetLabel = trayResetLabel();
+  const connected = remaining !== null;
+  const title = connected ? `${remaining}%` : '···';
+  if (process.platform === 'darwin') trayRef.setTitle(title, { fontType: 'monospacedDigit' });
+  trayRef.setToolTip(connected ? `瞬览 GlanceDeck · Codex 剩余 ${remaining}%` : '瞬览 GlanceDeck · Codex 用量同步中');
+  trayMenuRef = Menu.buildFromTemplate([
+    { label: connected ? `Codex 剩余 ${remaining}%` : 'Codex 用量同步中' },
+    ...(resetLabel ? [{ label: `本周期重置：${resetLabel}` }] : []),
+    { type: 'separator' },
+    { label: windowRef?.isVisible() ? '隐藏悬浮窗' : '显示悬浮窗', click: () => windowRef?.isVisible() ? windowRef.hide() : showWindow() },
+    { label: '立即刷新', click: () => windowRef?.webContents.send('app:refresh') },
     { type: 'separator' },
     {
       label: '始终置顶',
@@ -497,15 +576,15 @@ function createTray() {
       click: (item) => updateSettings({ alwaysOnTop: item.checked }),
     },
     { type: 'separator' },
-    { label: '退出', click: () => { isQuitting = true; app.quit(); } },
-  ]));
-  trayRef.on('click', () => windowRef?.isVisible() ? windowRef.hide() : showWindow());
+    { label: '退出瞬览', click: () => { isQuitting = true; app.quit(); } },
+  ]);
 }
 
 function showWindow() {
   if (!windowRef) createWindow();
   windowRef?.show();
   windowRef?.focus();
+  updateTrayPresentation();
 }
 
 function updateSettings(patch) {
@@ -537,19 +616,7 @@ function updateSettings(patch) {
 }
 
 function createTrayMenuOnly() {
-  trayRef?.setContextMenu(Menu.buildFromTemplate([
-    { label: '显示瞬览', click: () => showWindow() },
-    { label: '刷新数据', click: () => windowRef?.webContents.send('app:refresh') },
-    { type: 'separator' },
-    {
-      label: '始终置顶',
-      type: 'checkbox',
-      checked: Boolean(settings.alwaysOnTop),
-      click: (item) => updateSettings({ alwaysOnTop: item.checked }),
-    },
-    { type: 'separator' },
-    { label: '退出', click: () => { isQuitting = true; app.quit(); } },
-  ]));
+  updateTrayPresentation();
 }
 
 function findCodexBinary() {
@@ -1575,11 +1642,14 @@ ipcMain.handle('app:bootstrap', async () => ({ settings: publicSettings(), aiCat
 ipcMain.handle('codex:usage', async () => {
   try {
     const result = await codexServer.getUsage();
+    updateTrayPresentation(result);
     debugLog('Codex usage loaded', result.primary?.usedPercent);
     return result;
   } catch (error) {
     debugLog('Codex usage failed', error.message);
-    return { connected: false, error: error.message, updatedAt: Date.now() };
+    const result = { connected: false, error: error.message, updatedAt: Date.now() };
+    updateTrayPresentation(result);
+    return result;
   }
 });
 ipcMain.handle('market:snapshot', async (_event, secids) => {
@@ -1632,6 +1702,10 @@ ipcMain.on('window:minimize', () => windowRef?.minimize());
 ipcMain.on('window:hide', () => windowRef?.hide());
 ipcMain.on('app:quit', () => { isQuitting = true; app.quit(); });
 
+process.on('SIGUSR1', () => windowRef?.isVisible() ? windowRef.hide() : showWindow());
+process.on('SIGUSR2', () => windowRef?.webContents.send('app:refresh'));
+process.on('SIGHUP', () => { isQuitting = true; app.quit(); });
+
 app.whenReady().then(() => {
   loadSettings();
   loadHoldingAlertStates();
@@ -1658,7 +1732,8 @@ app.whenReady().then(() => {
   }
   if (process.env.FLOATDECK_CAPTURE_WEATHER_MANUAL) settings.weatherAuto = false;
   createWindow();
-  createTray();
+  if (process.platform === 'darwin') createMenuBarHelper();
+  else createTray();
   if (!process.env.FLOATDECK_CAPTURE_PATH) startHoldingAlertMonitor();
   globalShortcut.register('CommandOrControl+Shift+U', () => windowRef?.isVisible() ? windowRef.hide() : showWindow());
   app.on('activate', showWindow);
@@ -1668,7 +1743,10 @@ app.on('before-quit', () => {
   isQuitting = true;
   holdingAlertStatus.running = false;
   clearInterval(holdingAlertTimer);
+  clearTimeout(menuBarHelperRestartTimer);
   clearTimeout(holdingAlertKickTimer);
+  menuBarHelperRef?.kill();
+  menuBarHelperRef = null;
   codexServer.close();
   globalShortcut.unregisterAll();
 });

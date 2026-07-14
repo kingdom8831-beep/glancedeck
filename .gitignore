@@ -6,6 +6,7 @@ node_modules/
 # Generated frontend and packaged applications
 dist/
 release/
+build/GlanceDeckMenuBar
 
 # Local configuration and credentials
 .env
