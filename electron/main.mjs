@@ -1,6 +1,6 @@
 import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, Menu, nativeImage, net, Notification, safeStorage, screen, session, Tray } from 'electron';
 import { spawn, spawnSync } from 'node:child_process';
-import { accessSync, constants, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { accessSync, constants, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
@@ -655,6 +655,27 @@ function findCodexBinary() {
   return locator.status === 0 ? locator.stdout.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || null : null;
 }
 
+function codexAuthSignature() {
+  const codexHome = process.env.CODEX_HOME
+    ? path.resolve(process.env.CODEX_HOME)
+    : path.join(app.getPath('home'), '.codex');
+  const authPath = path.join(codexHome, 'auth.json');
+  try {
+    const stats = statSync(authPath);
+    // Only inspect file metadata. Never read or expose Codex credentials.
+    return `${authPath}:${stats.dev}:${stats.ino}:${stats.size}:${stats.mtimeMs}:${stats.ctimeMs}`;
+  } catch {
+    return `${authPath}:missing`;
+  }
+}
+
+function codexAccountIdentity(response) {
+  const account = response?.account;
+  if (!account) return 'signed-out';
+  if (account.type === 'chatgpt') return `chatgpt:${account.email || 'unknown'}`;
+  return String(account.type || 'unknown');
+}
+
 class CodexAppServer {
   constructor() {
     this.proc = null;
@@ -662,6 +683,11 @@ class CodexAppServer {
     this.pending = new Map();
     this.nextId = 1;
     this.lastError = null;
+    this.authSignature = null;
+    this.accountIdentity = null;
+    this.accountChangePending = false;
+    this.initialized = false;
+    this.restartPromise = null;
   }
 
   async connect() {
@@ -679,16 +705,19 @@ class CodexAppServer {
     const binary = findCodexBinary();
     if (!binary) throw new Error('未找到 Codex CLI');
 
+    this.initialized = false;
+    this.lastError = null;
     const isWindowsScript = process.platform === 'win32' && /\.(cmd|bat)$/i.test(binary);
     const command = isWindowsScript ? process.env.ComSpec || 'cmd.exe' : binary;
     const args = isWindowsScript ? ['/d', '/s', '/c', `"${binary}" app-server`] : ['app-server'];
-    this.proc = spawn(command, args, {
+    const child = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env, RUST_LOG: 'error' },
       windowsHide: true,
     });
+    this.proc = child;
 
-    const lines = readline.createInterface({ input: this.proc.stdout });
+    const lines = readline.createInterface({ input: child.stdout });
     lines.on('line', (line) => {
       try {
         const message = JSON.parse(line);
@@ -698,17 +727,21 @@ class CodexAppServer {
           clearTimeout(entry.timeout);
           if (message.error) entry.reject(new Error(message.error.message || 'Codex app-server error'));
           else entry.resolve(message.result);
+        } else if (message.method === 'account/updated' && this.initialized) {
+          this.accountChangePending = true;
+          debugLog('Codex account update notification received');
         }
       } catch {
         // Ignore malformed diagnostic output.
       }
     });
 
-    this.proc.stderr.on('data', (chunk) => {
+    child.stderr.on('data', (chunk) => {
       this.lastError = String(chunk).trim();
     });
 
-    this.proc.on('exit', () => {
+    child.on('exit', () => {
+      if (this.proc !== child) return;
       const error = new Error(this.lastError || 'Codex app-server 已退出');
       for (const { reject, timeout } of this.pending.values()) {
         clearTimeout(timeout);
@@ -717,6 +750,7 @@ class CodexAppServer {
       this.pending.clear();
       this.proc = null;
       this.ready = null;
+      this.initialized = false;
     });
 
     await this.request('initialize', {
@@ -724,6 +758,9 @@ class CodexAppServer {
       capabilities: null,
     }, true);
     this.send({ method: 'initialized', params: {} });
+    this.authSignature = codexAuthSignature();
+    this.accountChangePending = false;
+    this.initialized = true;
   }
 
   send(message) {
@@ -744,7 +781,88 @@ class CodexAppServer {
     });
   }
 
-  async getUsage() {
+  async stop(reason = 'Codex app-server 正在重连') {
+    const child = this.proc;
+    this.proc = null;
+    this.ready = null;
+    this.initialized = false;
+    this.authSignature = null;
+    this.accountIdentity = null;
+    this.accountChangePending = false;
+
+    const error = new Error(reason);
+    for (const { reject, timeout } of this.pending.values()) {
+      clearTimeout(timeout);
+      reject(error);
+    }
+    this.pending.clear();
+    if (!child || child.exitCode !== null) return;
+
+    await new Promise((resolve) => {
+      let settled = false;
+      let forceTimer = null;
+      let fallbackTimer = null;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(forceTimer);
+        clearTimeout(fallbackTimer);
+        resolve();
+      };
+      child.once('exit', finish);
+      child.kill('SIGTERM');
+      forceTimer = setTimeout(() => {
+        if (child.exitCode === null) child.kill('SIGKILL');
+      }, 1000);
+      fallbackTimer = setTimeout(finish, 1800);
+    });
+  }
+
+  async restart(reason) {
+    if (this.restartPromise) return this.restartPromise;
+    const currentReady = this.ready;
+    this.restartPromise = (async () => {
+      if (currentReady) {
+        try { await currentReady; } catch { /* Reconnect below. */ }
+      }
+      debugLog('Restarting Codex app-server', reason);
+      await this.stop(reason);
+      await this.connect();
+    })();
+    try {
+      return await this.restartPromise;
+    } finally {
+      this.restartPromise = null;
+    }
+  }
+
+  async ensureCurrentAccount(forceReconnect = false) {
+    if (this.restartPromise) await this.restartPromise;
+    await this.connect();
+    const authChanged = this.authSignature !== null && codexAuthSignature() !== this.authSignature;
+    if (forceReconnect || authChanged || this.accountChangePending) {
+      const reason = forceReconnect ? '手动刷新 Codex 账号'
+        : authChanged ? '检测到 Codex 认证文件变化'
+          : '检测到 Codex 账号更新通知';
+      await this.restart(reason);
+    }
+  }
+
+  async getUsage({ forceReconnect = false } = {}) {
+    await this.ensureCurrentAccount(forceReconnect);
+    try {
+      const account = await this.request('account/read', { refreshToken: false });
+      const identity = codexAccountIdentity(account);
+      if (this.accountIdentity && identity !== this.accountIdentity) {
+        debugLog('Codex account identity changed');
+      }
+      this.accountIdentity = identity;
+      this.accountChangePending = false;
+    } catch (error) {
+      // Older Codex versions may not expose account/read; rate-limit reading still works.
+      debugLog('Codex account identity check failed', error.message);
+    }
+
     const response = await this.request('account/rateLimits/read', undefined);
     const buckets = response?.rateLimitsByLimitId;
     const snapshot = buckets?.codex || Object.values(buckets || {})[0] || response?.rateLimits;
@@ -762,6 +880,7 @@ class CodexAppServer {
   }
 
   close() {
+    this.initialized = false;
     this.proc?.kill('SIGTERM');
   }
 }
@@ -1656,7 +1775,7 @@ async function analyzeWithAgent(request) {
 }
 
 ipcMain.handle('app:bootstrap', async () => ({ settings: publicSettings(), aiCatalog: publicAiCatalog(), aiHistory: aiAnalysisHistory, alertStatus: publicHoldingAlertStatus() }));
-ipcMain.handle('codex:usage', async () => {
+ipcMain.handle('codex:usage', async (_event, options = {}) => {
   if (process.env.FLOATDECK_CAPTURE_PATH) {
     return {
       connected: true,
@@ -1666,7 +1785,7 @@ ipcMain.handle('codex:usage', async () => {
     };
   }
   try {
-    const result = await codexServer.getUsage();
+    const result = await codexServer.getUsage({ forceReconnect: options?.forceReconnect === true });
     updateTrayPresentation(result);
     debugLog('Codex usage loaded', result.primary?.usedPercent);
     return result;

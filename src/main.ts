@@ -1409,8 +1409,8 @@ function bindEvents() {
   });
 }
 
-async function refreshCodex() {
-  state.codex = await window.floatdeck.refreshCodex();
+async function refreshCodex(forceReconnect = false) {
+  state.codex = await window.floatdeck.refreshCodex(forceReconnect);
   renderDataUpdate();
 }
 
@@ -1526,7 +1526,7 @@ async function refreshAll(manual = false) {
     render();
   }
   try {
-    const tasks = [refreshCodex(), refreshMarket(), refreshWeather()];
+    const tasks = [refreshCodex(manual), refreshMarket(), refreshWeather()];
     if (state.panel === 'chart' && state.chartMode === 'kline') tasks.push(refreshKline());
     if (state.panel === 'chart' && state.chartMode === 'funds') tasks.push(refreshFundFlow());
     await Promise.allSettled(tasks);

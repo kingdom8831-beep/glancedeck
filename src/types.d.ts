@@ -264,7 +264,7 @@ interface WeatherData {
 interface Window {
   floatdeck: {
     getBootstrap: () => Promise<{ settings: FloatDeckSettings; aiCatalog: AiCatalog; aiHistory: AiAnalysis[]; alertStatus: HoldingAlertStatus }>;
-    refreshCodex: () => Promise<CodexUsage>;
+    refreshCodex: (forceReconnect?: boolean) => Promise<CodexUsage>;
     refreshMarket: (secids: string[]) => Promise<MarketSnapshot>;
     refreshKline: (secid: string, period: 'm60' | 'day' | 'week' | 'month') => Promise<KlineSnapshot>;
     refreshFundFlow: (secid: string) => Promise<FundFlowSnapshot>;

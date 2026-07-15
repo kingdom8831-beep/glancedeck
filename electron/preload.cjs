@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('floatdeck', {
   getBootstrap: () => ipcRenderer.invoke('app:bootstrap'),
-  refreshCodex: () => ipcRenderer.invoke('codex:usage'),
+  refreshCodex: (forceReconnect = false) => ipcRenderer.invoke('codex:usage', { forceReconnect }),
   refreshMarket: (secids) => ipcRenderer.invoke('market:snapshot', secids),
   refreshKline: (secid, period) => ipcRenderer.invoke('market:kline', secid, period),
   refreshFundFlow: (secid) => ipcRenderer.invoke('market:fund-flow', secid),
